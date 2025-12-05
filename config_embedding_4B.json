@@ -1,13 +1,13 @@
 {
   "embeddings": [
     {
-      "tensorName": "ONET 25.0 embedding_4B",
+      "tensorName": "ONET 25.0 Qwen3 4B Embedding",
       "tensorShape": [
         1110,
         2560
       ],
-      "tensorPath": "vectors_embedding_4B.tsv",
-      "metadataPath": "metadata.tsv"
+      "tensorPath": "https://raw.githubusercontent.com/jeyabbalas/onet-25-0-qwen3-embeddings/refs/heads/main/vectors_embedding_4B.tsv",
+      "metadataPath": "https://raw.githubusercontent.com/jeyabbalas/onet-25-0-qwen3-embeddings/refs/heads/main/metadata.tsv"
     }
   ]
 }
