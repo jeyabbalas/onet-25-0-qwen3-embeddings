@@ -1,7 +1,7 @@
 {
   "embeddings": [
     {
-      "tensorName": "ONET embedding_4B",
+      "tensorName": "ONET 25.0 embedding_4B",
       "tensorShape": [
         1110,
         2560
