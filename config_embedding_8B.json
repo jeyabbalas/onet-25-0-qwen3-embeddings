@@ -1,0 +1,13 @@
+{
+  "embeddings": [
+    {
+      "tensorName": "ONET embedding_8B",
+      "tensorShape": [
+        1110,
+        4096
+      ],
+      "tensorPath": "vectors_embedding_8B.tsv",
+      "metadataPath": "metadata.tsv"
+    }
+  ]
+}
