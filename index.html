@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vector Search · Semantic Database Explorer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #111113;
+            --bg-tertiary: #18181b;
+            --bg-hover: #1f1f23;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #22d3ee;
+            --accent-dim: rgba(34, 211, 238, 0.15);
+            --border: #27272a;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --gradient-1: linear-gradient(135deg, #22d3ee 0%, #818cf8 100%);
+            --radius: 8px;
+            --radius-lg: 12px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .noise-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            opacity: 0.03;
+            z-index: 9999;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+
+        header {
+            text-align: center;
+            padding: 3rem 0 2rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            font-family: 'Instrument Serif', serif;
+            font-size: 3.5rem;
+            font-weight: 400;
+            letter-spacing: -0.02em;
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+        }
+
+        .config-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 8px; height: 8px;
+            background: var(--accent);
+            border-radius: 50%;
+        }
+
+        .input-group { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+
+        input[type="text"], input[type="url"] {
+            flex: 1;
+            min-width: 200px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 0.875rem 1rem;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-dim);
+        }
+
+        input::placeholder { color: var(--text-muted); }
+
+        button {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 0.875rem 1.5rem;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            white-space: nowrap;
+        }
+
+        button:hover { background: var(--bg-hover); border-color: var(--text-muted); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        button.primary {
+            background: var(--gradient-1);
+            border: none;
+            color: var(--bg-primary);
+            font-weight: 600;
+        }
+
+        button.primary:hover { opacity: 0.9; }
+
+        .status-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .status-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--text-muted);
+        }
+
+        .status-dot.active { background: var(--success); box-shadow: 0 0 8px var(--success); }
+        .status-dot.loading { background: var(--warning); animation: pulse 1s infinite; }
+        .status-dot.error { background: var(--error); }
+
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+        .search-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .search-section.disabled { opacity: 0.5; pointer-events: none; }
+
+        .results-section { margin-top: 2rem; }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .results-count { font-size: 0.85rem; color: var(--text-muted); }
+
+        .results-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+
+        .results-table thead {
+            position: sticky;
+            top: 0;
+            background: var(--bg-secondary);
+            z-index: 10;
+        }
+
+        .results-table th {
+            text-align: left;
+            padding: 1rem;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        .results-table td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+        }
+
+        .results-table tbody tr {
+            transition: all 0.15s ease;
+            cursor: pointer;
+        }
+
+        .results-table tbody tr:hover { background: var(--bg-hover); }
+        .results-table tbody tr:hover td { color: var(--text-primary); }
+
+        .rank-cell { font-weight: 600; color: var(--accent); width: 50px; }
+
+        .similarity-cell {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--success);
+            width: 120px;
+        }
+
+        .similarity-bar {
+            width: 60px; height: 4px;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
+            margin-top: 0.25rem;
+            overflow: hidden;
+        }
+
+        .similarity-fill {
+            height: 100%;
+            background: var(--gradient-1);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        .metadata-cell { max-width: 250px; }
+        .metadata-value { color: var(--text-secondary); word-break: break-word; line-height: 1.4; }
+        .metadata-key { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.15rem; }
+
+        .progress-container { margin-top: 1rem; }
+
+        .progress-bar {
+            width: 100%; height: 4px;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--gradient-1);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .progress-text {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .log-container {
+            margin-top: 1rem;
+            max-height: 150px;
+            overflow-y: auto;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius);
+            padding: 0.75rem;
+            font-size: 0.75rem;
+        }
+
+        .log-entry {
+            color: var(--text-muted);
+            margin-bottom: 0.25rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .log-entry.info { color: var(--text-secondary); }
+        .log-entry.success { color: var(--success); }
+        .log-entry.error { color: var(--error); }
+        .log-entry.warning { color: var(--warning); }
+        .log-time { color: var(--text-muted); margin-right: 0.5rem; }
+
+        .empty-state { text-align: center; padding: 4rem 2rem; color: var(--text-muted); }
+        .empty-state-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.3; }
+
+        .share-section { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+        .share-url { display: flex; gap: 0.5rem; align-items: center; }
+        .share-url input { flex: 1; font-size: 0.8rem; padding: 0.625rem 0.875rem; }
+        .copy-btn { padding: 0.625rem 1rem; font-size: 0.8rem; }
+
+        .tooltip { position: relative; }
+
+        .tooltip::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%; left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            padding: 0.5rem 0.75rem;
+            border-radius: var(--radius);
+            font-size: 0.75rem;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+            margin-bottom: 0.5rem;
+            border: 1px solid var(--border);
+        }
+
+        .tooltip:hover::after { opacity: 1; visibility: visible; }
+
+        .model-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            background: var(--accent-dim);
+            color: var(--accent);
+            padding: 0.25rem 0.625rem;
+            border-radius: 100px;
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+
+        .tensor-info { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+
+        .tensor-badge {
+            background: var(--bg-tertiary);
+            padding: 0.375rem 0.75rem;
+            border-radius: var(--radius);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            width: 16px; height: 16px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .scrollable-table {
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+        }
+
+        .clear-btn { background: transparent; border: 1px solid var(--error); color: var(--error); }
+        .clear-btn:hover { background: rgba(239, 68, 68, 0.1); }
+        .search-time { font-size: 0.75rem; color: var(--text-muted); margin-left: 1rem; }
+
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            h1 { font-size: 2.5rem; }
+            .input-group { flex-direction: column; }
+            .results-table { display: block; overflow-x: auto; }
+            .status-bar { flex-direction: column; gap: 0.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="noise-overlay"></div>
+    
+    <div class="container">
+        <header>
+            <h1>Vector Search</h1>
+            <p class="subtitle">Semantic Database Explorer · Powered by Qwen3 Embeddings</p>
+        </header>
+
+        <section class="config-section">
+            <div class="section-title">Configuration</div>
+            <div class="input-group">
+                <input type="url" id="configUrl" placeholder="Enter TensorFlow Projector config URL (e.g., https://example.com/config.json)">
+                <button id="loadConfigBtn" class="primary">
+                    <span id="loadBtnText">Load Config</span>
+                    <div id="loadBtnSpinner" class="spinner" style="display: none;"></div>
+                </button>
+                <button id="clearDbBtn" class="clear-btn" style="display: none;">Clear Database</button>
+            </div>
+
+            <div class="status-bar">
+                <div class="status-item">
+                    <div class="status-dot" id="modelStatus"></div>
+                    <span id="modelStatusText">Model: Not loaded</span>
+                </div>
+                <div class="status-item">
+                    <div class="status-dot" id="dbStatus"></div>
+                    <span id="dbStatusText">Database: Empty</span>
+                </div>
+                <div class="status-item">
+                    <span class="model-badge">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+                        </svg>
+                        Qwen3-Embedding-0.6B · FP16
+                    </span>
+                </div>
+            </div>
+
+            <div id="tensorInfo" class="tensor-info" style="display: none;"></div>
+
+            <div id="progressContainer" class="progress-container" style="display: none;">
+                <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+                <div class="progress-text">
+                    <span id="progressLabel">Loading...</span>
+                    <span id="progressPercent">0%</span>
+                </div>
+            </div>
+
+            <div id="logContainer" class="log-container" style="display: none;"></div>
+
+            <div class="share-section" id="shareSection" style="display: none;">
+                <div class="section-title">Share This Configuration</div>
+                <div class="share-url">
+                    <input type="text" id="shareUrl" readonly>
+                    <button id="copyUrlBtn" class="copy-btn tooltip" data-tooltip="Copy to clipboard">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                        </svg>
+                        Copy
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section class="search-section disabled" id="searchSection">
+            <div class="section-title">Semantic Search</div>
+            <div class="input-group">
+                <input type="text" id="searchQuery" placeholder="Enter your search query...">
+                <button id="searchBtn" class="primary" disabled>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+                    </svg>
+                    Search
+                </button>
+            </div>
+        </section>
+
+        <section class="results-section" id="resultsSection" style="display: none;">
+            <div class="results-header">
+                <div class="section-title" style="margin-bottom: 0;">Search Results</div>
+                <div>
+                    <span class="results-count" id="resultsCount">0 results</span>
+                    <span class="search-time" id="searchTime"></span>
+                </div>
+            </div>
+            <div class="scrollable-table">
+                <table class="results-table">
+                    <thead id="resultsHeader"></thead>
+                    <tbody id="resultsBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <div class="empty-state" id="emptyState">
+            <div class="empty-state-icon">◇</div>
+            <p>Load a configuration file to begin semantic search</p>
+        </div>
+    </div>
+
+    <script type="module">
+        import { pipeline } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.6.0';
+
+        /**
+         * VectorDB - An EntityDB-compatible vector database using IndexedDB
+         * Implements the same API patterns as EntityDB (https://github.com/babycommando/entity-db)
+         * with additional support for multiple configurations and metadata tracking.
+         */
+        class VectorDB {
+            constructor(dbName = 'VectorSearchDB') {
+                this.dbName = dbName;
+                this.storeName = 'Vectors'; // Same store name as EntityDB
+                this.metaStoreName = 'ConfigMetadata';
+                this.db = null;
+            }
+
+            async init() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(this.dbName, 2);
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => { this.db = request.result; resolve(this); };
+                    request.onupgradeneeded = (event) => {
+                        const db = event.target.result;
+                        if (!db.objectStoreNames.contains(this.storeName)) {
+                            const store = db.createObjectStore(this.storeName, { keyPath: 'id', autoIncrement: true });
+                            store.createIndex('configUrl', 'configUrl', { unique: false });
+                        }
+                        if (!db.objectStoreNames.contains(this.metaStoreName)) {
+                            db.createObjectStore(this.metaStoreName, { keyPath: 'configUrl' });
+                        }
+                    };
+                });
+            }
+
+            /**
+             * Insert pre-computed vectors (EntityDB API compatible)
+             * @param {Array} items - Array of {embedding, metadata, index}
+             * @param {string} configUrl - Configuration URL for filtering
+             * @param {Array} metadataHeaders - Metadata column names
+             */
+            async insertManualVectors(items, configUrl, metadataHeaders = []) {
+                return new Promise((resolve, reject) => {
+                    const transaction = this.db.transaction([this.storeName, this.metaStoreName], 'readwrite');
+                    const store = transaction.objectStore(this.storeName);
+                    const metaStore = transaction.objectStore(this.metaStoreName);
+                    
+                    metaStore.put({ 
+                        configUrl, 
+                        metadataHeaders, 
+                        vectorCount: items.length, 
+                        loadedAt: new Date().toISOString() 
+                    });
+                    
+                    items.forEach(item => store.add({ ...item, configUrl }));
+                    transaction.oncomplete = () => resolve();
+                    transaction.onerror = () => reject(transaction.error);
+                });
+            }
+
+            /**
+             * Query vectors using cosine similarity (EntityDB API compatible)
+             * @param {Array} queryVector - Query embedding vector
+             * @param {number} topK - Number of results to return
+             * @param {string} configUrl - Optional config URL filter
+             */
+            async queryManualVectors(queryVector, topK = 10, configUrl = null) {
+                return new Promise((resolve, reject) => {
+                    const transaction = this.db.transaction([this.storeName], 'readonly');
+                    const store = transaction.objectStore(this.storeName);
+                    const request = configUrl 
+                        ? store.index('configUrl').getAll(configUrl) 
+                        : store.getAll();
+                    
+                    request.onsuccess = () => {
+                        const results = request.result.map(item => ({
+                            ...item,
+                            similarity: this.cosineSimilarity(queryVector, item.embedding)
+                        }));
+                        results.sort((a, b) => b.similarity - a.similarity);
+                        resolve(results.slice(0, topK));
+                    };
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async getConfigMeta(configUrl) {
+                return new Promise((resolve, reject) => {
+                    const transaction = this.db.transaction([this.metaStoreName], 'readonly');
+                    const request = transaction.objectStore(this.metaStoreName).get(configUrl);
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async clear() {
+                return new Promise((resolve, reject) => {
+                    const transaction = this.db.transaction([this.storeName, this.metaStoreName], 'readwrite');
+                    transaction.objectStore(this.storeName).clear();
+                    transaction.objectStore(this.metaStoreName).clear();
+                    transaction.oncomplete = () => resolve();
+                    transaction.onerror = () => reject(transaction.error);
+                });
+            }
+
+            async clearConfig(configUrl) {
+                return new Promise((resolve, reject) => {
+                    const transaction = this.db.transaction([this.storeName, this.metaStoreName], 'readwrite');
+                    const store = transaction.objectStore(this.storeName);
+                    const metaStore = transaction.objectStore(this.metaStoreName);
+                    const cursorRequest = store.index('configUrl').openCursor(IDBKeyRange.only(configUrl));
+                    cursorRequest.onsuccess = (event) => {
+                        const cursor = event.target.result;
+                        if (cursor) { cursor.delete(); cursor.continue(); }
+                    };
+                    metaStore.delete(configUrl);
+                    transaction.oncomplete = () => resolve();
+                    transaction.onerror = () => reject(transaction.error);
+                });
+            }
+
+            async count(configUrl = null) {
+                return new Promise((resolve, reject) => {
+                    const transaction = this.db.transaction([this.storeName], 'readonly');
+                    const store = transaction.objectStore(this.storeName);
+                    const request = configUrl 
+                        ? store.index('configUrl').count(configUrl) 
+                        : store.count();
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            /**
+             * Cosine similarity between two vectors (same algorithm as EntityDB)
+             */
+            cosineSimilarity(vecA, vecB) {
+                if (!vecA || !vecB || vecA.length !== vecB.length) return 0;
+                let dotProduct = 0, normA = 0, normB = 0;
+                for (let i = 0; i < vecA.length; i++) {
+                    dotProduct += vecA[i] * vecB[i];
+                    normA += vecA[i] * vecA[i];
+                    normB += vecB[i] * vecB[i];
+                }
+                return (normA === 0 || normB === 0) ? 0 : dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+            }
+        }
+
+        // Application State
+        const state = { embedder: null, vectorDB: null, metadataHeaders: [], configLoaded: false, modelLoaded: false, currentConfig: null, currentConfigUrl: null };
+
+        // DOM Elements
+        const el = {
+            configUrl: document.getElementById('configUrl'),
+            loadConfigBtn: document.getElementById('loadConfigBtn'),
+            loadBtnText: document.getElementById('loadBtnText'),
+            loadBtnSpinner: document.getElementById('loadBtnSpinner'),
+            clearDbBtn: document.getElementById('clearDbBtn'),
+            modelStatus: document.getElementById('modelStatus'),
+            modelStatusText: document.getElementById('modelStatusText'),
+            dbStatus: document.getElementById('dbStatus'),
+            dbStatusText: document.getElementById('dbStatusText'),
+            tensorInfo: document.getElementById('tensorInfo'),
+            progressContainer: document.getElementById('progressContainer'),
+            progressFill: document.getElementById('progressFill'),
+            progressLabel: document.getElementById('progressLabel'),
+            progressPercent: document.getElementById('progressPercent'),
+            logContainer: document.getElementById('logContainer'),
+            shareSection: document.getElementById('shareSection'),
+            shareUrl: document.getElementById('shareUrl'),
+            copyUrlBtn: document.getElementById('copyUrlBtn'),
+            searchSection: document.getElementById('searchSection'),
+            searchQuery: document.getElementById('searchQuery'),
+            searchBtn: document.getElementById('searchBtn'),
+            resultsSection: document.getElementById('resultsSection'),
+            resultsHeader: document.getElementById('resultsHeader'),
+            resultsBody: document.getElementById('resultsBody'),
+            resultsCount: document.getElementById('resultsCount'),
+            searchTime: document.getElementById('searchTime'),
+            emptyState: document.getElementById('emptyState')
+        };
+
+        // Utilities
+        function log(message, type = 'info') {
+            el.logContainer.style.display = 'block';
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.innerHTML = `<span class="log-time">[${new Date().toLocaleTimeString()}]</span>${message}`;
+            el.logContainer.appendChild(entry);
+            el.logContainer.scrollTop = el.logContainer.scrollHeight;
+        }
+
+        function updateProgress(percent, label) {
+            el.progressContainer.style.display = 'block';
+            el.progressFill.style.width = `${percent}%`;
+            el.progressPercent.textContent = `${Math.round(percent)}%`;
+            if (label) el.progressLabel.textContent = label;
+        }
+
+        function hideProgress() { el.progressContainer.style.display = 'none'; }
+        function setModelStatus(status, text) { el.modelStatus.className = `status-dot ${status}`; el.modelStatusText.textContent = text; }
+        function setDbStatus(status, text) { el.dbStatus.className = `status-dot ${status}`; el.dbStatusText.textContent = text; }
+        function getConfigFromUrl() { return new URLSearchParams(window.location.search).get('config'); }
+
+        function updateShareUrl(configUrl) {
+            const shareUrl = new URL(window.location.href);
+            shareUrl.searchParams.set('config', configUrl);
+            el.shareUrl.value = shareUrl.toString();
+            el.shareSection.style.display = 'block';
+        }
+
+        async function fetchJson(url) { const r = await fetch(url); if (!r.ok) throw new Error(`Failed: ${r.statusText}`); return r.json(); }
+        async function fetchText(url) { const r = await fetch(url); if (!r.ok) throw new Error(`Failed: ${r.statusText}`); return r.text(); }
+
+        function parseVectors(tsvText) {
+            return tsvText.trim().split('\n').map(line => line.split('\t').map(v => parseFloat(v)));
+        }
+
+        function parseMetadata(tsvText) {
+            const lines = tsvText.trim().split('\n');
+            if (lines.length === 0) return { headers: [], data: [] };
+            const headers = lines[0].split('\t');
+            const data = lines.slice(1).map(line => {
+                const values = line.split('\t');
+                const obj = {};
+                headers.forEach((h, i) => obj[h] = values[i] || '');
+                return obj;
+            });
+            return { headers, data };
+        }
+
+        function escapeHtml(text) { const d = document.createElement('div'); d.textContent = text; return d.innerHTML; }
+
+        // Core Functions
+        async function loadModel() {
+            if (state.modelLoaded) return;
+            setModelStatus('loading', 'Model: Loading...');
+            log('Loading Qwen3-Embedding-0.6B model (FP16)...', 'info');
+            try {
+                state.embedder = await pipeline('feature-extraction', 'onnx-community/Qwen3-Embedding-0.6B-ONNX', {
+                    dtype: 'fp16',
+                    progress_callback: (p) => {
+                        if (p.status === 'progress') updateProgress(50 + (p.progress || 0) * 0.5, `Loading model: ${p.file || ''}`);
+                    }
+                });
+                state.modelLoaded = true;
+                setModelStatus('active', 'Model: Qwen3-0.6B Ready');
+                log('Model loaded successfully!', 'success');
+            } catch (error) {
+                setModelStatus('error', 'Model: Load failed');
+                log(`Model loading failed: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+
+        async function search(query, topK = 10) {
+            if (!state.modelLoaded) throw new Error('Model not loaded');
+            const startTime = performance.now();
+            
+            // Use Qwen3 instruction format for queries
+            const instruction = "Retrieve the detailed description of the standardized occupation that best matches the job briefly described by the user in the 'Query'.";
+            const formattedQuery = `Instruct: ${instruction}\nQuery:${query}`;
+            
+            log(`Generating embedding for: "${query}"`, 'info');
+            // CRITICAL: Qwen3-Embedding uses last_token pooling, NOT mean pooling
+            const output = await state.embedder(formattedQuery, { pooling: 'last_token', normalize: true });
+            const queryVector = Array.from(output.data);
+            log(`Embedding generated (dim: ${queryVector.length})`, 'success');
+            const results = await state.vectorDB.queryManualVectors(queryVector, topK, state.currentConfigUrl);
+            const duration = ((performance.now() - startTime) / 1000).toFixed(2);
+            log(`Found ${results.length} results in ${duration}s`, 'success');
+            return { results, duration };
+        }
+
+        function renderResults(results, duration) {
+            el.resultsSection.style.display = 'block';
+            el.emptyState.style.display = 'none';
+            el.resultsCount.textContent = `${results.length} results`;
+            el.searchTime.textContent = `(${duration}s)`;
+
+            let headerHtml = '<tr><th>Rank</th><th>Similarity</th>';
+            state.metadataHeaders.forEach(h => headerHtml += `<th>${escapeHtml(h)}</th>`);
+            headerHtml += '</tr>';
+            el.resultsHeader.innerHTML = headerHtml;
+
+            let bodyHtml = '';
+            results.forEach((r, idx) => {
+                const sim = (r.similarity * 100).toFixed(2);
+                const barW = Math.max(0, Math.min(100, r.similarity * 100));
+                bodyHtml += `<tr><td class="rank-cell">#${idx + 1}</td>`;
+                bodyHtml += `<td class="similarity-cell">${sim}%<div class="similarity-bar"><div class="similarity-fill" style="width:${barW}%"></div></div></td>`;
+                state.metadataHeaders.forEach(h => {
+                    const v = r.metadata?.[h] || '-';
+                    bodyHtml += `<td class="metadata-cell"><div class="metadata-key">${escapeHtml(h)}</div><div class="metadata-value">${escapeHtml(v)}</div></td>`;
+                });
+                bodyHtml += '</tr>';
+            });
+            el.resultsBody.innerHTML = bodyHtml;
+        }
+
+        async function loadConfig(configUrl) {
+            el.loadBtnText.textContent = 'Loading...';
+            el.loadBtnSpinner.style.display = 'block';
+            el.loadConfigBtn.disabled = true;
+            el.logContainer.innerHTML = '';
+
+            try {
+                if (!state.vectorDB) { 
+                    state.vectorDB = new VectorDB(); 
+                    await state.vectorDB.init(); 
+                    log('IndexedDB vector database initialized (EntityDB-compatible)', 'success'); 
+                }
+
+                const existingCount = await state.vectorDB.count(configUrl);
+                if (existingCount > 0) {
+                    log(`Found ${existingCount} cached vectors`, 'info');
+                    const meta = await state.vectorDB.getConfigMeta(configUrl);
+                    if (meta) {
+                        state.metadataHeaders = meta.metadataHeaders;
+                        state.currentConfigUrl = configUrl;
+                        state.configLoaded = true;
+                        el.tensorInfo.style.display = 'flex';
+                        el.tensorInfo.innerHTML = `<span class="tensor-badge">Cached: ${existingCount} vectors</span><span class="tensor-badge">Loaded: ${new Date(meta.loadedAt).toLocaleString()}</span>`;
+                        setDbStatus('active', `Database: ${existingCount} vectors (cached)`);
+                        updateProgress(50, 'Loading embedding model...');
+                        await loadModel();
+                        el.searchSection.classList.remove('disabled');
+                        el.searchBtn.disabled = false;
+                        el.clearDbBtn.style.display = 'inline-flex';
+                        el.emptyState.style.display = 'none';
+                        updateShareUrl(configUrl);
+                        updateProgress(100, 'Complete!');
+                        log('Ready to search!', 'success');
+                        setTimeout(hideProgress, 1000);
+                        return;
+                    }
+                }
+
+                log(`Fetching config: ${configUrl}`, 'info');
+                updateProgress(5, 'Fetching configuration...');
+                const config = await fetchJson(configUrl);
+                state.currentConfig = config;
+                state.currentConfigUrl = configUrl;
+
+                if (!config.embeddings?.length) throw new Error('No embeddings found');
+                const emb = config.embeddings[0];
+                log(`Found: ${emb.tensorName}`, 'success');
+                el.tensorInfo.style.display = 'flex';
+                el.tensorInfo.innerHTML = `<span class="tensor-badge">Name: ${escapeHtml(emb.tensorName)}</span><span class="tensor-badge">Shape: ${emb.tensorShape.join(' × ')}</span>`;
+
+                log(`Fetching vectors: ${emb.tensorPath}`, 'info');
+                updateProgress(15, 'Fetching vectors...');
+                const vectors = parseVectors(await fetchText(emb.tensorPath));
+                log(`Parsed ${vectors.length} vectors (dim: ${vectors[0]?.length || 0})`, 'success');
+
+                let metadataHeaders = [], metadata = [];
+                if (emb.metadataPath) {
+                    log(`Fetching metadata: ${emb.metadataPath}`, 'info');
+                    updateProgress(30, 'Fetching metadata...');
+                    const parsed = parseMetadata(await fetchText(emb.metadataPath));
+                    metadataHeaders = parsed.headers;
+                    metadata = parsed.data;
+                    log(`Parsed ${metadata.length} metadata entries`, 'success');
+                }
+                state.metadataHeaders = metadataHeaders;
+
+                await state.vectorDB.clearConfig(configUrl);
+                log('Storing vectors in IndexedDB...', 'info');
+                updateProgress(40, 'Storing vectors...');
+                const items = vectors.map((vec, idx) => ({ embedding: vec, metadata: metadata[idx] || {}, index: idx }));
+                const batchSize = 100;
+                for (let i = 0; i < items.length; i += batchSize) {
+                    await state.vectorDB.insertManualVectors(items.slice(i, i + batchSize), configUrl, metadataHeaders);
+                    updateProgress(40 + ((i + batchSize) / items.length) * 10, `Storing: ${Math.min(i + batchSize, items.length)}/${items.length}`);
+                }
+                log(`Stored ${items.length} vectors`, 'success');
+                setDbStatus('active', `Database: ${items.length} vectors`);
+
+                updateProgress(50, 'Loading embedding model...');
+                await loadModel();
+
+                state.configLoaded = true;
+                el.searchSection.classList.remove('disabled');
+                el.searchBtn.disabled = false;
+                el.clearDbBtn.style.display = 'inline-flex';
+                el.emptyState.style.display = 'none';
+                updateShareUrl(configUrl);
+                updateProgress(100, 'Complete!');
+                log('Ready to search!', 'success');
+                setTimeout(hideProgress, 1000);
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+                setDbStatus('error', 'Database: Load failed');
+                hideProgress();
+            } finally {
+                el.loadBtnText.textContent = 'Load Config';
+                el.loadBtnSpinner.style.display = 'none';
+                el.loadConfigBtn.disabled = false;
+            }
+        }
+
+        async function clearDatabase() {
+            if (state.vectorDB) await state.vectorDB.clear();
+            state.metadataHeaders = [];
+            state.configLoaded = false;
+            state.currentConfig = null;
+            state.currentConfigUrl = null;
+            setDbStatus('', 'Database: Empty');
+            el.searchSection.classList.add('disabled');
+            el.searchBtn.disabled = true;
+            el.resultsSection.style.display = 'none';
+            el.emptyState.style.display = 'block';
+            el.clearDbBtn.style.display = 'none';
+            el.tensorInfo.style.display = 'none';
+            el.shareSection.style.display = 'none';
+            el.logContainer.innerHTML = '';
+            el.logContainer.style.display = 'none';
+            log('Database cleared', 'info');
+        }
+
+        // Event Listeners
+        el.loadConfigBtn.addEventListener('click', () => { const url = el.configUrl.value.trim(); if (url) loadConfig(url); });
+        el.configUrl.addEventListener('keypress', (e) => { if (e.key === 'Enter') { const url = el.configUrl.value.trim(); if (url) loadConfig(url); } });
+        el.clearDbBtn.addEventListener('click', clearDatabase);
+        el.searchBtn.addEventListener('click', async () => {
+            const query = el.searchQuery.value.trim();
+            if (!query) return;
+            el.searchBtn.disabled = true;
+            try { const { results, duration } = await search(query, 10); renderResults(results, duration); }
+            catch (error) { log(`Search error: ${error.message}`, 'error'); }
+            finally { el.searchBtn.disabled = false; }
+        });
+        el.searchQuery.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !el.searchBtn.disabled) el.searchBtn.click(); });
+        el.copyUrlBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(el.shareUrl.value).then(() => {
+                el.copyUrlBtn.setAttribute('data-tooltip', 'Copied!');
+                setTimeout(() => el.copyUrlBtn.setAttribute('data-tooltip', 'Copy to clipboard'), 2000);
+            });
+        });
+
+        // Initialize from URL
+        const configFromUrl = getConfigFromUrl();
+        if (configFromUrl) { el.configUrl.value = configFromUrl; loadConfig(configFromUrl); }
+    </script>
+</body>
+</html>
